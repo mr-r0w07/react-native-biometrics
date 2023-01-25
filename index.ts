@@ -13,6 +13,7 @@ interface RNBiometricsOptions {
 
 interface IsSensorAvailableResult {
   available: boolean
+  secure: boolean
   biometryType?: BiometryType
   error?: string
 }

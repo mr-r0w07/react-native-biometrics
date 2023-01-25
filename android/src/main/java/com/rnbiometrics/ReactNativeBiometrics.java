@@ -4,6 +4,8 @@ import android.os.Build;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
+import android.content.Context;
+import android.content.Intent;
 
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
@@ -29,6 +31,7 @@ import java.security.Signature;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import android.app.KeyguardManager;
 
 /**
  * Created by brandon on 4/5/18.
@@ -36,6 +39,7 @@ import java.util.concurrent.Executors;
 
 public class ReactNativeBiometrics extends ReactContextBaseJavaModule {
 
+    private static final int INTENT_AUTHENTICATE = 1234;
     protected String biometricKeyAlias = "biometric_key";
 
     public ReactNativeBiometrics(ReactApplicationContext reactContext) {
@@ -55,10 +59,13 @@ public class ReactNativeBiometrics extends ReactContextBaseJavaModule {
                 ReactApplicationContext reactApplicationContext = getReactApplicationContext();
                 BiometricManager biometricManager = BiometricManager.from(reactApplicationContext);
                 int canAuthenticate = biometricManager.canAuthenticate(getAllowedAuthenticators(allowDeviceCredentials));
+                KeyguardManager keyguardManager = (KeyguardManager) reactApplicationContext.getSystemService(Context.KEYGUARD_SERVICE);
+                boolean secure = keyguardManager.isKeyguardSecure();
 
                 if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
                     WritableMap resultMap = new WritableNativeMap();
                     resultMap.putBoolean("available", true);
+                    resultMap.putBoolean("secure", secure);
                     resultMap.putString("biometryType", "Biometrics");
                     promise.resolve(resultMap);
                 } else {
@@ -79,7 +86,8 @@ public class ReactNativeBiometrics extends ReactContextBaseJavaModule {
                             resultMap.putString("error", "BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED");
                             break; 
                     }
-
+                    
+                    resultMap.putBoolean("secure", secure);
                     promise.resolve(resultMap);
                 }
             } else {

@@ -1,5 +1,7 @@
 package com.rnbiometrics;
 
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.util.Base64;
 
 import androidx.annotation.NonNull;
@@ -9,11 +11,16 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableNativeMap;
 
+import java.security.KeyStore;
+import java.security.PrivateKey;
 import java.security.Signature;
+
+import javax.crypto.SecretKey;
 
 public class CreateSignatureCallback extends BiometricPrompt.AuthenticationCallback {
     private Promise promise;
     private String payload;
+    protected String biometricKeyAlias = "biometric_key";
 
     public CreateSignatureCallback(Promise promise, String payload) {
         super();
@@ -37,10 +44,17 @@ public class CreateSignatureCallback extends BiometricPrompt.AuthenticationCallb
     @Override
     public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
         super.onAuthenticationSucceeded(result);
+        Signature cryptoSignature = null;
 
         try {
             BiometricPrompt.CryptoObject cryptoObject = result.getCryptoObject();
-            Signature cryptoSignature = cryptoObject.getSignature();
+            if(cryptoObject != null){
+                cryptoSignature = cryptoObject.getSignature();
+            } else {
+                PrivateKey newKey = generateSecretKey();
+                cryptoSignature = Signature.getInstance("SHA256withRSA");
+                cryptoSignature.initSign(newKey);
+            }
             cryptoSignature.update(this.payload.getBytes());
             byte[] signed = cryptoSignature.sign();
             String signedString = Base64.encodeToString(signed, Base64.DEFAULT);
@@ -53,5 +67,16 @@ public class CreateSignatureCallback extends BiometricPrompt.AuthenticationCallb
         } catch (Exception e) {
             promise.reject("Error creating signature: " + e.getMessage(), "Error creating signature");
         }
+    }
+
+     private PrivateKey generateSecretKey(){
+        PrivateKey privateKey = null;
+        try {
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+
+            privateKey= (PrivateKey) keyStore.getKey(biometricKeyAlias, null);
+        } catch (Exception e) {}
+        return privateKey;
     }
 }
